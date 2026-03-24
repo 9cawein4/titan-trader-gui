@@ -81,14 +81,14 @@ function EquityChart({ data }: { data: PortfolioSnapshot[] }) {
 
   return (
     <Card className="bg-card border-card-border col-span-full lg:col-span-2" data-testid="chart-equity">
-      <CardHeader className="pb-2">
+      <CardHeader className="pb-1">
         <CardTitle className="text-sm font-semibold flex items-center gap-2">
           <BarChart3 className="w-4 h-4 text-primary" />
           Portfolio Equity
         </CardTitle>
       </CardHeader>
-      <CardContent className="pb-4">
-        <div className="h-[260px]">
+      <CardContent className="pb-2 pt-0">
+        <div className="h-[240px]">
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={chartData}>
               <defs>
@@ -108,7 +108,7 @@ function EquityChart({ data }: { data: PortfolioSnapshot[] }) {
                 tickLine={false}
                 axisLine={false}
                 tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`}
-                domain={["auto", "auto"]}
+                domain={[(dataMin: number) => Math.floor(dataMin * 0.9 / 5000) * 5000, (dataMax: number) => Math.ceil(dataMax * 1.05 / 5000) * 5000]}
               />
               <Tooltip
                 contentStyle={{
@@ -177,14 +177,23 @@ function PositionsTable({ positions }: { positions: Position[] }) {
   );
 }
 
+const signalLabels: Record<string, string> = {
+  STRONG_BUY: "Strong Buy",
+  BUY: "Buy",
+  HOLD: "Hold",
+  SELL: "Sell",
+  STRONG_SELL: "Strong Sell",
+};
+
+const signalColor: Record<string, string> = {
+  STRONG_BUY: "bg-vice-success/20 text-vice-success border-vice-success/30",
+  BUY: "bg-vice-success/10 text-vice-success border-vice-success/20",
+  HOLD: "bg-muted text-muted-foreground border-border",
+  SELL: "bg-destructive/10 text-destructive border-destructive/20",
+  STRONG_SELL: "bg-destructive/20 text-destructive border-destructive/30",
+};
+
 function SignalsPanel({ strategies }: { strategies: Strategy[] }) {
-  const signalColor: Record<string, string> = {
-    STRONG_BUY: "bg-vice-success/20 text-vice-success border-vice-success/30",
-    BUY: "bg-vice-success/10 text-vice-success border-vice-success/20",
-    HOLD: "bg-muted text-muted-foreground border-border",
-    SELL: "bg-destructive/10 text-destructive border-destructive/20",
-    STRONG_SELL: "bg-destructive/20 text-destructive border-destructive/30",
-  };
 
   return (
     <Card className="bg-card border-card-border" data-testid="panel-signals">
@@ -204,7 +213,7 @@ function SignalsPanel({ strategies }: { strategies: Strategy[] }) {
               </span>
             </div>
             <Badge variant="outline" className={cn("text-[10px] font-bold", signalColor[s.lastSignal ?? "HOLD"])}>
-              {s.lastSignal ?? "HOLD"}
+              {signalLabels[s.lastSignal ?? "HOLD"] ?? s.lastSignal}
             </Badge>
           </div>
         ))}
@@ -341,7 +350,7 @@ export default function Dashboard() {
       </div>
 
       {/* Chart + Signals Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 items-start">
         <EquityChart data={history ?? []} />
         <div className="space-y-3">
           <SignalsPanel strategies={strategies} />
