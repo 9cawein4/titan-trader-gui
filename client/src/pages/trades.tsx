@@ -21,13 +21,13 @@ export default function Trades() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [typeFilter, setTypeFilter] = useState<string>("all");
 
-  const queryStatus = statusFilter === "all" ? undefined : statusFilter;
   const { data: trades = [], isLoading } = useQuery<Trade[]>({
-    queryKey: ["/api/trades", mode, { status: queryStatus }],
+    queryKey: ["/api/trades", mode],
     refetchInterval: 10000,
   });
 
   const filtered = trades.filter((t) => {
+    if (statusFilter !== "all" && t.status !== statusFilter) return false;
     if (typeFilter !== "all" && t.tradeType !== typeFilter) return false;
     return true;
   });
