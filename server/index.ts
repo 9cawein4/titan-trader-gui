@@ -2,9 +2,17 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
+import { setupWebSocket } from "./websocket";
+import { startHealthPolling } from "./agent";
 
 const app = express();
 const httpServer = createServer(app);
+
+// Initialize WebSocket server on the same HTTP server
+setupWebSocket(httpServer);
+
+// Start polling the Python engine for health status
+startHealthPolling();
 
 declare module "http" {
   interface IncomingMessage {
@@ -14,6 +22,7 @@ declare module "http" {
 
 app.use(
   express.json({
+    limit: "10kb",
     verify: (req, _res, buf) => {
       req.rawBody = buf;
     },
@@ -29,7 +38,6 @@ export function log(message: string, source = "express") {
     second: "2-digit",
     hour12: true,
   });
-
   console.log(`${formattedTime} [${source}] ${message}`);
 }
 
@@ -51,7 +59,6 @@ app.use((req, res, next) => {
       if (capturedJsonResponse) {
         logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
       }
-
       log(logLine);
     }
   });
@@ -60,24 +67,23 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  // Validate required env vars
+  if (!process.env.TITAN_ENCRYPTION_KEY) {
+    console.warn("WARNING: TITAN_ENCRYPTION_KEY not set. API key encryption will use a random key that changes on restart.");
+  }
+
   await registerRoutes(httpServer, app);
 
   app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
-
     console.error("Internal Server Error:", err);
-
     if (res.headersSent) {
       return next(err);
     }
-
     return res.status(status).json({ message });
   });
 
-  // importantly only setup vite in development and after
-  // setting up all the other routes so the catch-all route
-  // doesn't interfere with the other routes
   if (process.env.NODE_ENV === "production") {
     serveStatic(app);
   } else {
@@ -85,10 +91,6 @@ app.use((req, res, next) => {
     await setupVite(httpServer, app);
   }
 
-  // ALWAYS serve the app on the port specified in the environment variable PORT
-  // Other ports are firewalled. Default to 5000 if not specified.
-  // this serves both the API and the client.
-  // It is the only port that is not firewalled.
   const port = parseInt(process.env.PORT || "5000", 10);
   httpServer.listen(
     {
